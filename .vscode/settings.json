@@ -1,0 +1,16 @@
+
+{
+    "files.associations": {
+        "*.html": "jinja-html",
+        "*.jinja": "jinja-html",
+        "*.jinja2": "jinja-html"
+    },
+    "emmet.includeLanguages": {
+        "jinja-html": "html"
+    },
+    "material-icon-theme.files.associations": {
+        "*.html": "jinja",
+        "*.jinja": "jinja",
+        "*.jinja2": "jinja"
+    }
+}

@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    {% if task %}
+                    <h1>Modification de la tache</h1>
+                    {% else %}
+                    <h1>Creation d'une nouvelle tache</h1>
+                    {% endif %}
+                    <form action="" method="post">
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="title">Titre</label><br>
+                                <input class="form-control" type="text" name="title" id="title"
+                                    value="{% if task %} {{ task.title }} {% endif %}">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="description">Description</label><br>
+                                <textarea class="form-control" rows="10" name="description"
+                                    id="description">{% if task %} {{ task.description }} {% endif %}</textarea>
+                            </div>
+
+                            {# <div class="form-group">
+                                <label for="etat">Etat</label><br>
+                                <input class="form-control" type="text" name="etat" id="etat"
+                                    value="{% if task %} {{ task.etat }} {% endif %}">
+                            </div> #}
+
+                            <div class="form-group">
+                                <label for="etat">Etat</label><br>
+                                <select class="form-control" name="etat" id="etat">
+                                    <option value="à faire" {% if task and task.etat=='à faire' %} selected {% endif%}>À faire</option>
+                                    <option value="en cours" {% if task and task.etat=='en cours' %} selected {% endif%}>En cours</option>
+                                    <option value="terminée" {% if task and task.etat=='terminée' %} selected {% endif%}>Terminée</option>
+                                </select>
+                            </div>
+
+
+                            <div class="form-group">
+                                <label for="username" class="text-info">Utilisateur connecter</label><br>
+                                <input class="form-control" type="text" name="username" id="username"
+                                    value="{{ current_user.username }}" readonly>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary my-3">
+                                {% if task %}
+                                Mettre a jour la tache
+                                {% else %}
+                                Creer la nouvelle tache
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
