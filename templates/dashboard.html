@@ -3,14 +3,14 @@
 {% block content %}
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
 
@@ -20,6 +20,7 @@
 {% else %}
 <p class="text-center">Veuillez vous connecter pour accéder à votre tableau de bord.</p>
 {% endif %}
+
 <a href="{{ url_for('create') }}" class="btn btn-success my-3">Creer une nouvelle tache</a>
 <a href="{{ url_for('profil') }}" class="btn btn-primary my-3 float-end">Mettre a jour le profil</a>
 
@@ -38,13 +39,13 @@
 <div class="table table-responsive">
     <table class="table-bordered border-dark table-hover text-center col-md-12">
         <thead>
-        <tr class="table-dark table-active text-uppercase text-white">
-            <th>Id</th>
-            <th>Titre</th>
-            <th>Description</th>
-            <th>Date echeance</th>
-            <th>Etat</th>
-            <th>Actions</th>
+            <tr class="table-dark table-active text-uppercase text-white">
+                <th>Id</th>
+                <th>Titre</th>
+                <th>Description</th>
+                <th>Date echeance</th>
+                <th>Etat</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -56,9 +57,10 @@
                 <th>{{ task.date_echeance }}</th>
                 <th class="text-info">{{ task.etat }}</th>
                 <th>
-                    <a href="{{ url_for('update', task_id = task.id) }}" class="btn btn-warning">Modifier</a>
-                    <form action="{{ url_for('delete', task_id = task.id) }}" method="post" class="d-inline">
-                        <button type="submit" class="btn btn-danger">Supprimer</button>
+                    <a href="{{ url_for('update', task_id=task.id) }}" class="btn btn-warning">Modifier</a>
+                    <form action="{{ url_for('delete', task_id=task.id) }}" method="post" class="d-inline delete-form">
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                            data-bs-target="#deleteModal" data-task-id="{{ task.id }}">Supprimer</button>
                     </form>
                 </th>
             </tr>
@@ -66,4 +68,38 @@
         </tbody>
     </table>
 </div>
+
+
+<!-- Modal HTML -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirmation de suppression</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Êtes-vous sûr de vouloir supprimer cette tâche ?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="deleteForm" method="post" action="">
+                    <button type="submit" class="btn btn-danger">Supprimer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript pour le modal -->
+<script>
+    var deleteModal = document.getElementById('deleteModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var taskId = button.getAttribute('data-task-id');
+
+        var deleteForm = document.getElementById('deleteForm');
+        deleteForm.action = '/delete/' + taskId;
+    });
+</script>
 {% endblock content %}

@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_mail import Mail, Message
+import secrets
 from flask_login import LoginManager, login_user, logout_user, UserMixin, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
@@ -11,13 +13,15 @@ app = Flask(__name__)
 app.config.from_object(Config)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+mail = Mail(app)
 
-login_manager = LoginManager()
+
+login_manager = LoginManager()  #gestionnaire de sessions de connexion (LoginManager).
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'login' #Cette ligne définit la vue de connexion par défaut
 
 
-class User(UserMixin, db.Model):
+class User(UserMixin, db.Model): #UserMinin permet au modele d'herite de plusieurs methode importante necessaire pour de flask_login
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -33,20 +37,14 @@ class Task(db.Model):
     etat = db.Column(db.String(20), nullable=False, default='à faire')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-
+#Elle assure que seuls les utilisateurs valides peuvent être récupérés et que les actions sensibles nécessitent une vérification de l'identité de l'utilisateur.
 @login_manager.user_loader
 def load_user(user_id):
     return db.get_or_404(User, int(user_id))
 
 
-# @app.route('/dashboard')
-# @login_required
-# def dashboard():
-#     tasks = Task.query.all()
-#     return render_template('dashboard.html', tasks=tasks)
-    
 @app.route('/dashboard', methods=['GET', 'POST'])
-@login_required
+@login_required #Flask-Login vérifie si l'utilisateur actuel est authentifié sinon  Flask-Login redirige automatiquement l'utilisateur vers la vue spécifiée par login_manager.login_view = 'login'
 def dashboard():
     if request.method == 'POST':
         filter_etat = request.form.get('filter_etat')
@@ -180,6 +178,55 @@ def profil():
     
     return render_template('/partials/_profil.html', user=current_user)
 
+
+
+
+# # Fonction pour générer un token sécurisé
+# def generate_reset_token():
+#     return secrets.token_urlsafe(32)
+
+# # Route pour la demande de réinitialisation de mot de passe
+# @app.route('/reset_password_request', methods=['GET', 'POST'])
+# def reset_password_request():
+#     if request.method == 'POST':
+#         email = request.form.get('email')
+#         # Recherchez l'utilisateur par son adresse e-mail dans la base de données
+#         user = User.query.filter_by(email=email).first()
+#         if user:
+#             # Générer un token de réinitialisation
+#             token = generate_reset_token()
+#             user.reset_password_token = token
+#             db.session.commit()
+
+#             # Envoyer un e-mail de réinitialisation avec le lien
+#             reset_url = url_for('reset_password', token=token, _external=True)
+#             msg = Message('Réinitialisation de mot de passe', sender='votre_email@example.com', recipients=[email])
+#             msg.body = f'Pour réinitialiser votre mot de passe, veuillez cliquer sur ce lien : {reset_url}'
+#             mail.send(msg)
+
+#             flash('Un e-mail a été envoyé avec les instructions pour réinitialiser votre mot de passe.', 'success')
+#             return redirect(url_for('login'))
+#         else:
+#             flash('Aucun utilisateur trouvé avec cette adresse e-mail.', 'danger')
+#     return render_template('reset_password_request.html')
+
+# # Route pour la réinitialisation de mot de passe
+# @app.route('/reset_password/<token>', methods=['GET', 'POST'])
+# def reset_password(token):
+#     user = User.query.filter_by(reset_password_token=token).first()
+#     if user:
+#         if request.method == 'POST':
+#             password = request.form.get('password')
+#             # Mettre à jour le mot de passe de l'utilisateur
+#             user.password = generate_password_hash(password)
+#             user.reset_password_token = None  # Effacer le token après réinitialisation
+#             db.session.commit()
+#             flash('Votre mot de passe a été réinitialisé avec succès.', 'success')
+#             return redirect(url_for('login'))
+#         return render_template('reset_password.html', token=token)
+#     else:
+#         flash('Ce lien de réinitialisation de mot de passe est invalide ou a expiré.', 'danger')
+#         return redirect(url_for('login'))
 
 
 if __name__ == '__main__':
