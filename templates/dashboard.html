@@ -25,12 +25,12 @@
 
 <form method="post" action="{{ url_for('dashboard') }}" class="mb-3">
     <div class="form-group">
-        <label for="filter_etat">Filtrer par statut :</label>
+        <label for="filter_etat">Filtrer par Etat :</label>
         <select class="form-control" id="filter_etat" name="filter_etat" onchange="this.form.submit();">
-            <option value="">Tous</option>
-            <option value="à faire">À faire</option>
-            <option value="en cours">En cours</option>
-            <option value="terminée">Terminée</option>
+            <option value="all" {% if filter_etat == 'all' %}selected{% endif %}>Tous</option>
+            <option value="à faire" {% if filter_etat == 'à faire' %}selected{% endif %}>À faire</option>
+            <option value="en cours" {% if filter_etat == 'en cours' %}selected{% endif %}>En cours</option>
+            <option value="terminée" {% if filter_etat == 'terminée' %}selected{% endif %}>Terminée</option>
         </select>
     </div>
 </form>
@@ -53,7 +53,7 @@
                 <th>{{ task.id }}</th>
                 <th>{{ task.title }}</th>
                 <th>{{ task.description }}</th>
-                <th>{{ task.date_echeance }}</th>
+                <th>{{ task.date_echeance }}</th>   
                 <th class="text-info">{{ task.etat }}</th>
                 <th>
                     <a href="{{ url_for('update', task_id=task.id) }}" class="btn btn-warning">Modifier</a>

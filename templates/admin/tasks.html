@@ -1,0 +1,12 @@
+<!-- app/templates/admin/tasks.html -->
+
+{% extends 'layout.html' %}
+
+{% block content %}
+    <h2>Gestion des Tâches</h2>
+    <ul>
+        {% for task in tasks %}
+            <li>{{ task.title }} - {{ task.description }}</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

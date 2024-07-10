@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, Blueprint
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_mail import Mail, Message
@@ -21,13 +21,15 @@ login_manager.init_app(app)
 login_manager.login_view = 'login' #Cette ligne définit la vue de connexion par défaut
 
 
+
 class User(UserMixin, db.Model): #UserMinin permet au modele d'herite de plusieurs methode importante necessaire pour de flask_login
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(500))
-    tasks = db.relationship('Task', backref='author', lazy=True)
     reset_password_token = db.Column(db.String(100), nullable=True)
+    is_admin = db.Column(db.Boolean, default=False)
+    tasks = db.relationship('Task', backref='author', lazy=True)
 
 
 class Task(db.Model):
@@ -37,6 +39,7 @@ class Task(db.Model):
     date_echeance = db.Column(db.DateTime, nullable=True, default=db.func.current_timestamp())
     etat = db.Column(db.String(20), nullable=False, default='à faire')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
 
 #Elle assure que seuls les utilisateurs valides peuvent être récupérés et que les actions sensibles nécessitent une vérification de l'identité de l'utilisateur.
 @login_manager.user_loader
@@ -53,6 +56,11 @@ def login():
         
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password, password):
+            if user.is_admin:
+                # Connexion réussie en tant qu'administrateur
+                login_user(user)
+                flash('Vous êtes maintenant connecté en tant qu\'administrateur.', 'success')
+                return redirect(url_for('admin.admin_dashboard'))
             login_user(user)
             flash('Vous vous êtes connecté avec succes', 'success')
             return redirect(url_for('dashboard'))
@@ -145,18 +153,20 @@ def logout():
 
 
 @app.route('/dashboard', methods=['GET', 'POST'])
-@login_required #Flask-Login vérifie si l'utilisateur actuel est authentifié sinon  Flask-Login redirige automatiquement l'utilisateur vers la vue spécifiée par login_manager.login_view = 'login'
+@login_required  # Flask-Login vérifie si l'utilisateur actuel est authentifié sinon Flask-Login redirige automatiquement l'utilisateur vers la vue spécifiée par login_manager.login_view = 'login'
 def dashboard():
+    filter_etat = 'all'
     if request.method == 'POST':
         filter_etat = request.form.get('filter_etat')
-        if filter_etat:
+        if filter_etat and filter_etat != 'all':
             tasks = Task.query.filter_by(user_id=current_user.id, etat=filter_etat).all()
         else:
             tasks = Task.query.filter_by(user_id=current_user.id).all()
     else:
-        tasks = Task.query.all()
+        tasks = Task.query.filter_by(user_id=current_user.id).all()
 
-    return render_template('dashboard.html', tasks=tasks)
+    return render_template('dashboard.html', tasks=tasks, filter_etat=filter_etat)
+
 
 
 @app.route('/create', methods=['GET', 'POST'])
@@ -166,7 +176,11 @@ def create():
         title = request.form['title']
         description = request.form['description']
         etat = request.form['etat']
-        new_task = Task(title=title, description=description, etat=etat, user_id=current_user.id)
+        is_admin = request.form['is_admin']
+        
+        is_admin = True if is_admin else False
+        
+        new_task = Task(title=title, description=description, etat=etat, is_admin=is_admin, user_id=current_user.id)
         db.session.add(new_task)
         db.session.commit()
         flash('Nouvelle tâche créée avec succès!', 'success')
@@ -216,6 +230,7 @@ def profil():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
+        is_admin = request.form.get('is_admin')
         
         if not username or not email or not password:
             flash('Veuillez remplir tous les champs', 'danger')
@@ -224,6 +239,7 @@ def profil():
         current_user.username = username
         current_user.email = email
         current_user.password = generate_password_hash(password)
+        current_user.is_admin = True if is_admin else False
         
         try:
             db.session.commit()
@@ -238,53 +254,45 @@ def profil():
 
 
 
-# # Fonction pour générer un token sécurisé
-# def generate_reset_token():
-#     return secrets.token_urlsafe(32)
 
-# # Route pour la demande de réinitialisation de mot de passe
-# @app.route('/reset_password_request', methods=['GET', 'POST'])
-# def reset_password_request():
-#     if request.method == 'POST':
-#         email = request.form.get('email')
-#         # Recherchez l'utilisateur par son adresse e-mail dans la base de données
-#         user = User.query.filter_by(email=email).first()
-#         if user:
-#             # Générer un token de réinitialisation
-#             token = generate_reset_token()
-#             user.reset_password_token = token
-#             db.session.commit()
+admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
-#             # Envoyer un e-mail de réinitialisation avec le lien
-#             reset_url = url_for('reset_password', token=token, _external=True)
-#             msg = Message('Réinitialisation de mot de passe', sender='votre_email@example.com', recipients=[email])
-#             msg.body = f'Pour réinitialiser votre mot de passe, veuillez cliquer sur ce lien : {reset_url}'
-#             mail.send(msg)
+@admin_bp.route('/')
+@login_required
+def admin_dashboard():
+    if not current_user.is_admin:
+        flash('Vous n\'avez pas les autorisations nécessaires pour accéder à cette page.', 'danger')
+        return redirect(url_for('dashboard'))  # Redirige l'utilisateur non-admin vers le tableau de bord utilisateur normal
+    
+    users = User.query.all()  # Récupère tous les utilisateurs
+    tasks = Task.query.all()  # Récupère toutes les tâches
+    
+    return render_template('/admin/dashboard.html', users=users, tasks=tasks)
 
-#             flash('Un e-mail a été envoyé avec les instructions pour réinitialiser votre mot de passe.', 'success')
-#             return redirect(url_for('login'))
-#         else:
-#             flash('Aucun utilisateur trouvé avec cette adresse e-mail.', 'danger')
-#     return render_template('reset_password_request.html')
+@admin_bp.route('/users')
+@login_required
+def manage_users():
+    if not current_user.is_admin:
+        flash('Vous n\'avez pas les autorisations nécessaires pour accéder à cette page.', 'danger')
+        return redirect(url_for('dashboard'))  # Redirige l'utilisateur non-admin vers le tableau de bord utilisateur normal
+    
+    users = User.query.all()  # Récupère tous les utilisateurs
+    
+    return render_template('admin/users.html', users=users)
 
-# # Route pour la réinitialisation de mot de passe
-# @app.route('/reset_password/<token>', methods=['GET', 'POST'])
-# def reset_password(token):
-#     user = User.query.filter_by(reset_password_token=token).first()
-#     if user:
-#         if request.method == 'POST':
-#             password = request.form.get('password')
-#             # Mettre à jour le mot de passe de l'utilisateur
-#             user.password = generate_password_hash(password)
-#             user.reset_password_token = None  # Effacer le token après réinitialisation
-#             db.session.commit()
-#             flash('Votre mot de passe a été réinitialisé avec succès.', 'success')
-#             return redirect(url_for('login'))
-#         return render_template('reset_password.html', token=token)
-#     else:
-#         flash('Ce lien de réinitialisation de mot de passe est invalide ou a expiré.', 'danger')
-#         return redirect(url_for('login'))
+@admin_bp.route('/tasks')
+@login_required
+def manage_tasks():
+    if not current_user.is_admin:
+        flash('Vous n\'avez pas les autorisations nécessaires pour accéder à cette page.', 'danger')
+        return redirect(url_for('dashboard'))  # Redirige l'utilisateur non-admin vers le tableau de bord utilisateur normal
+    
+    tasks = Task.query.all()  # Récupère toutes les tâches
+    
+    return render_template('admin/tasks.html', tasks=tasks)
 
+# Enregistrez le Blueprint de l'administration
+app.register_blueprint(admin_bp)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5003)
