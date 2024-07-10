@@ -27,6 +27,7 @@ class User(UserMixin, db.Model): #UserMinin permet au modele d'herite de plusieu
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(500))
     tasks = db.relationship('Task', backref='author', lazy=True)
+    reset_password_token = db.Column(db.String(100), nullable=True)
 
 
 class Task(db.Model):
@@ -42,20 +43,6 @@ class Task(db.Model):
 def load_user(user_id):
     return db.get_or_404(User, int(user_id))
 
-
-@app.route('/dashboard', methods=['GET', 'POST'])
-@login_required #Flask-Login vérifie si l'utilisateur actuel est authentifié sinon  Flask-Login redirige automatiquement l'utilisateur vers la vue spécifiée par login_manager.login_view = 'login'
-def dashboard():
-    if request.method == 'POST':
-        filter_etat = request.form.get('filter_etat')
-        if filter_etat:
-            tasks = Task.query.filter_by(user_id=current_user.id, etat=filter_etat).all()
-        else:
-            tasks = Task.query.filter_by(user_id=current_user.id).all()
-    else:
-        tasks = Task.query.all()
-
-    return render_template('dashboard.html', tasks=tasks)
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -95,11 +82,81 @@ def register():
     return render_template('register.html')
 
 
+def generate_reset_token():
+    return secrets.token_urlsafe(32)
+
+
+@app.route('/reset_password_request', methods=['GET', 'POST'])
+def reset_password_request():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = generate_reset_token()
+            user.reset_password_token = token
+            db.session.commit()
+
+            reset_url = url_for('reset_password', token=token, _external=True)
+            msg = Message('Réinitialisation de mot de passe', sender='you@example.com', recipients=[email])
+            msg.body = f'Pour réinitialiser votre mot de passe, veuillez cliquer sur ce lien : {reset_url}'
+            mail.send(msg)
+
+            flash('Un email a été envoyé avec les instructions pour réinitialiser votre mot de passe.', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('Aucun utilisateur trouvé avec cette adresse email.', 'danger')
+    return render_template('/partials/_reset_password_request.html')
+
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    user = User.query.filter_by(reset_password_token=token).first()
+    if user:
+        if request.method == 'POST':
+            password = request.form.get('password')
+            user.password = generate_password_hash(password)
+            user.reset_password_token = None
+            db.session.commit()
+            flash('Votre mot de passe a été réinitialisé avec succès.', 'success')
+            return redirect(url_for('login'))
+        return render_template('/partials/_reset_password.html', token=token)
+    else:
+        flash('Ce lien de réinitialisation de mot de passe est invalide ou a expiré.', 'danger')
+        return redirect(url_for('login'))
+    
+    
+@app.route('/send_test_email')
+def send_test_email():
+    try:
+        msg = Message('Test Email', recipients=['daoudasoum14@gmail.com'])
+        msg.body = 'Ce ci est un test de mail depuis Flask-Mail.'
+        mail.send(msg)
+        return 'Email envoyé avec succes!'
+    except Exception as e:
+        return str(e)
+
+
+
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+
+@app.route('/dashboard', methods=['GET', 'POST'])
+@login_required #Flask-Login vérifie si l'utilisateur actuel est authentifié sinon  Flask-Login redirige automatiquement l'utilisateur vers la vue spécifiée par login_manager.login_view = 'login'
+def dashboard():
+    if request.method == 'POST':
+        filter_etat = request.form.get('filter_etat')
+        if filter_etat:
+            tasks = Task.query.filter_by(user_id=current_user.id, etat=filter_etat).all()
+        else:
+            tasks = Task.query.filter_by(user_id=current_user.id).all()
+    else:
+        tasks = Task.query.all()
+
+    return render_template('dashboard.html', tasks=tasks)
 
 
 @app.route('/create', methods=['GET', 'POST'])
@@ -230,4 +287,4 @@ def profil():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5003)
