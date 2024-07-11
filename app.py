@@ -76,6 +76,8 @@ def register():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
+        is_admin = request.form.get('is_admin') == 'on'
+        
         
         user = User.query.filter_by(username=username).first()
         
@@ -83,7 +85,7 @@ def register():
             flash('Ce nom d\'utilisateur est déjà pris. Veuillez en choisir un autre.')
             return redirect(url_for('login'))
         else:
-            new_user = User(username=username, email=email, password=generate_password_hash(password))
+            new_user = User(username=username, email=email, password=generate_password_hash(password), is_admin=is_admin)
             db.session.add(new_user)
             db.session.commit()
             return redirect(url_for('login'))
@@ -176,11 +178,8 @@ def create():
         title = request.form['title']
         description = request.form['description']
         etat = request.form['etat']
-        is_admin = request.form['is_admin']
         
-        is_admin = True if is_admin else False
-        
-        new_task = Task(title=title, description=description, etat=etat, is_admin=is_admin, user_id=current_user.id)
+        new_task = Task(title=title, description=description, etat=etat, user_id=current_user.id)
         db.session.add(new_task)
         db.session.commit()
         flash('Nouvelle tâche créée avec succès!', 'success')
